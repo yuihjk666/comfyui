@@ -1,5 +1,5 @@
 #!/bin/bash
-# nai움짤 / 딸깍 NSFW WAN2.2 I2V — Vast.ai (ai-dock/ComfyUI) 프로비저닝
+# nai움짤 / 딸깍 NSFW WAN2.2 I2V — Vast.ai (vastai/comfy) 프로비저닝
 # 출처 워크플로: arca 163422937 + 로컬 dalkkak_nsfw_wan_local
 #
 # Vast 템플릿 환경변수:
@@ -8,8 +8,6 @@
 #   INSTALL_OLLAMA = true 이면 Ollama + 비전 모델까지 설치 (디스크 +6GB, 기본 false)
 #
 # 디스크 권장: 80GB+ (Wan High/Low ~29GB + UMT5 ~7GB + LoRA/VAE/업스케일 + 여유)
-
-#DEFAULT_WORKFLOW="https://..."
 
 APT_PACKAGES=(
     #"ffmpeg"
@@ -42,7 +40,6 @@ NODES=(
     "https://github.com/filliptm/ComfyUI_Fill-Nodes"
 )
 
-# SD 체크포인트는 안 씀 (WAN I2V만)
 CHECKPOINT_MODELS=(
 )
 
@@ -72,60 +69,80 @@ CLIP_VISION_MODELS=(
     "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors"
 )
 
-# ai-dock 기본 변수명 (ESRGAN). 일부 포크는 UPSCALE_MODELS — 둘 다 채워둠
 ESRGAN_MODELS=(
     "https://huggingface.co/Kim2091/2x-AnimeSharpV4/resolve/main/2x-AnimeSharpV4_RCAN.safetensors"
     "https://huggingface.co/Kim2091/2x-AnimeSharpV4/resolve/main/2x-AnimeSharpV4_Fast_RCAN_PU.safetensors"
     "https://huggingface.co/MonsterMMORPG/BestImageUpscalers/resolve/main/2xLiveActionV1_SPAN_490000.pth"
 )
-UPSCALE_MODELS=(
-    "${ESRGAN_MODELS[@]}"
-)
-
-CONTROLNET_MODELS=(
-)
-
-### DO NOT EDIT BELOW HERE UNLESS YOU KNOW WHAT YOU ARE DOING ###
 
 DISK_GB_REQUIRED=80
 
-function provisioning_start() {
-    if [[ ! -d /opt/environments/python ]]; then
-        export MAMBA_BASE=true
-    fi
-    source /opt/ai-dock/etc/environment.sh
-    source /opt/ai-dock/bin/venv-set.sh comfyui
+function provisioning_resolve_paths() {
+    WORKSPACE="${WORKSPACE:-/workspace}"
 
+    if [[ -d "${WORKSPACE}/ComfyUI" ]]; then
+        COMFYUI_DIR="${WORKSPACE}/ComfyUI"
+    elif [[ -d /opt/ComfyUI ]]; then
+        COMFYUI_DIR="/opt/ComfyUI"
+    else
+        COMFYUI_DIR="${WORKSPACE}/ComfyUI"
+        mkdir -p "${COMFYUI_DIR}"
+    fi
+
+    # vastai/comfy 기본 venv
+    if [[ -f /venv/main/bin/activate ]]; then
+        # shellcheck disable=SC1091
+        source /venv/main/bin/activate
+        PYTHON_PIP="pip"
+    elif [[ -f /venv/comfyui/bin/activate ]]; then
+        # shellcheck disable=SC1091
+        source /venv/comfyui/bin/activate
+        PYTHON_PIP="pip"
+    elif [[ -x /opt/ai-dock/bin/venv-set.sh ]]; then
+        # 구 ai-dock 이미지 호환
+        # shellcheck disable=SC1091
+        source /opt/ai-dock/etc/environment.sh 2>/dev/null || true
+        # shellcheck disable=SC1091
+        source /opt/ai-dock/bin/venv-set.sh comfyui
+        PYTHON_PIP="${COMFYUI_VENV_PIP:-pip}"
+    else
+        PYTHON_PIP="pip"
+    fi
+
+    printf "COMFYUI_DIR=%s\n" "${COMFYUI_DIR}"
+    printf "PIP=%s (%s)\n" "${PYTHON_PIP}" "$(command -v "${PYTHON_PIP}" || echo missing)"
+}
+
+function provisioning_start() {
+    provisioning_resolve_paths
     provisioning_print_header
     provisioning_get_apt_packages
     provisioning_get_nodes
     provisioning_get_pip_packages
 
-    # ai-dock 스토리지 레이아웃 (심볼릭으로 ComfyUI/models 에 연결됨)
-    local sd="${WORKSPACE}/storage/stable_diffusion/models"
+    local md="${COMFYUI_DIR}/models"
     mkdir -p \
-        "${sd}/unet/Wan2.1" \
-        "${sd}/diffusion_models/Wan2.1" \
-        "${sd}/lora" \
-        "${sd}/vae" \
-        "${sd}/clip" \
-        "${sd}/text_encoders" \
-        "${sd}/clip_vision" \
-        "${sd}/esrgan" \
-        "${sd}/upscale_models"
+        "${md}/diffusion_models/Wan2.1" \
+        "${md}/unet/Wan2.1" \
+        "${md}/loras" \
+        "${md}/vae" \
+        "${md}/clip" \
+        "${md}/text_encoders" \
+        "${md}/clip_vision" \
+        "${md}/upscale_models" \
+        "${md}/esrgan"
 
     # UNET / diffusion_models (워크플로 경로: Wan2.1\파일명)
-    provisioning_get_models "${sd}/unet/Wan2.1" "${UNET_MODELS[@]}"
-    provisioning_get_models "${sd}/diffusion_models/Wan2.1" "${UNET_MODELS[@]}"
+    provisioning_get_models "${md}/diffusion_models/Wan2.1" "${UNET_MODELS[@]}"
+    provisioning_get_models "${md}/unet/Wan2.1" "${UNET_MODELS[@]}"
 
-    provisioning_get_models "${sd}/lora" "${LORA_MODELS[@]}"
-    provisioning_get_models "${sd}/vae" "${VAE_MODELS[@]}"
-    provisioning_get_models "${sd}/text_encoders" "${TEXT_ENCODER_MODELS[@]}"
-    # CLIPLoader 가 clip/ 도 찾는 경우 대비
-    provisioning_get_models "${sd}/clip" "${TEXT_ENCODER_MODELS[@]}"
-    provisioning_get_models "${sd}/clip_vision" "${CLIP_VISION_MODELS[@]}"
-    provisioning_get_models "${sd}/esrgan" "${ESRGAN_MODELS[@]}"
-    provisioning_get_models "${sd}/upscale_models" "${UPSCALE_MODELS[@]}"
+    provisioning_get_models "${md}/loras" "${LORA_MODELS[@]}"
+    provisioning_get_models "${md}/vae" "${VAE_MODELS[@]}"
+    provisioning_get_models "${md}/text_encoders" "${TEXT_ENCODER_MODELS[@]}"
+    provisioning_get_models "${md}/clip" "${TEXT_ENCODER_MODELS[@]}"
+    provisioning_get_models "${md}/clip_vision" "${CLIP_VISION_MODELS[@]}"
+    provisioning_get_models "${md}/upscale_models" "${ESRGAN_MODELS[@]}"
+    provisioning_get_models "${md}/esrgan" "${ESRGAN_MODELS[@]}"
 
     provisioning_maybe_install_ollama
     provisioning_print_end
@@ -140,7 +157,6 @@ function provisioning_maybe_install_ollama() {
     if ! command -v ollama >/dev/null 2>&1; then
         curl -fsSL https://ollama.com/install.sh | sh
     fi
-    # 백그라운드 serve
     export OLLAMA_NUM_GPU="${OLLAMA_NUM_GPU:-0}"
     nohup ollama serve >/var/log/ollama.log 2>&1 &
     sleep 3
@@ -148,50 +164,48 @@ function provisioning_maybe_install_ollama() {
 }
 
 function pip_install() {
-    if [[ -z $MAMBA_BASE ]]; then
-        "$COMFYUI_VENV_PIP" install --no-cache-dir "$@"
-    else
-        micromamba run -n comfyui pip install --no-cache-dir "$@"
-    fi
+    "${PYTHON_PIP}" install --no-cache-dir "$@"
 }
 
 function provisioning_get_apt_packages() {
-    if [[ -n $APT_PACKAGES ]]; then
-        sudo $APT_INSTALL ${APT_PACKAGES[@]}
+    if [[ -n ${APT_PACKAGES[*]:-} ]]; then
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y "${APT_PACKAGES[@]}"
     fi
 }
 
 function provisioning_get_pip_packages() {
-    if [[ -n $PIP_PACKAGES ]]; then
-        pip_install ${PIP_PACKAGES[@]}
+    if [[ -n ${PIP_PACKAGES[*]:-} ]]; then
+        pip_install "${PIP_PACKAGES[@]}"
     fi
 }
 
 function provisioning_get_nodes() {
+    mkdir -p "${COMFYUI_DIR}/custom_nodes"
     for repo in "${NODES[@]}"; do
         dir="${repo##*/}"
-        path="/opt/ComfyUI/custom_nodes/${dir}"
+        path="${COMFYUI_DIR}/custom_nodes/${dir}"
         requirements="${path}/requirements.txt"
         if [[ -d $path ]]; then
             if [[ ${AUTO_UPDATE,,} != "false" ]]; then
                 printf "Updating node: %s...\n" "${repo}"
                 ( cd "$path" && git pull )
                 if [[ -e $requirements ]]; then
-                    pip_install -r "$requirements"
+                    pip_install -r "$requirements" || true
                 fi
             fi
         else
             printf "Downloading node: %s...\n" "${repo}"
             git clone "${repo}" "${path}" --recursive
             if [[ -e $requirements ]]; then
-                pip_install -r "${requirements}"
+                pip_install -r "${requirements}" || true
             fi
         fi
     done
 }
 
 function provisioning_get_models() {
-    if [[ -z $2 ]]; then return 1; fi
+    if [[ -z ${2:-} ]]; then return 1; fi
     dir="$1"
     mkdir -p "$dir"
     shift
@@ -209,12 +223,12 @@ function provisioning_print_header() {
     printf "\n##############################################\n"
     printf "# nai움짤 dalkkak WAN provisioning           #\n"
     printf "##############################################\n\n"
-    if [[ -n $DISK_GB_ALLOCATED && -n $DISK_GB_REQUIRED ]]; then
+    if [[ -n ${DISK_GB_ALLOCATED:-} && -n ${DISK_GB_REQUIRED:-} ]]; then
         if [[ $DISK_GB_ALLOCATED -lt $DISK_GB_REQUIRED ]]; then
             printf "WARNING: disk %sGB < recommended %sGB\n" "$DISK_GB_ALLOCATED" "$DISK_GB_REQUIRED"
         fi
     fi
-    if [[ -z "$CIVITAI_TOKEN" ]]; then
+    if [[ -z "${CIVITAI_TOKEN:-}" ]]; then
         printf "NOTE: CIVITAI_TOKEN 없음 — Fused_Triple LoRA 다운로드가 실패할 수 있음 (NSFW-22는 HF로 받음)\n"
     fi
 }
@@ -226,9 +240,10 @@ function provisioning_print_end() {
 }
 
 function provisioning_download() {
-    if [[ -n $HF_TOKEN && $1 =~ ^https://([a-zA-Z0-9_-]+\.)?huggingface\.co(/|$|\?) ]]; then
+    local auth_token=""
+    if [[ -n ${HF_TOKEN:-} && $1 =~ ^https://([a-zA-Z0-9_-]+\.)?huggingface\.co(/|$|\?) ]]; then
         auth_token="$HF_TOKEN"
-    elif [[ -n $CIVITAI_TOKEN && $1 =~ ^https://([a-zA-Z0-9_-]+\.)?civitai\.com(/|$|\?) ]]; then
+    elif [[ -n ${CIVITAI_TOKEN:-} && $1 =~ ^https://([a-zA-Z0-9_-]+\.)?civitai\.com(/|$|\?) ]]; then
         auth_token="$CIVITAI_TOKEN"
     fi
     if [[ -n $auth_token ]]; then
