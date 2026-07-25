@@ -1,82 +1,96 @@
 #!/bin/bash
-
-# This file will be sourced in init.sh
-
-# https://raw.githubusercontent.com/ai-dock/comfyui/main/config/provisioning/default.sh
-
-# Packages are installed after nodes so we can fix them...
+# nai움짤 / 딸깍 NSFW WAN2.2 I2V — Vast.ai (ai-dock/ComfyUI) 프로비저닝
+# 출처 워크플로: arca 163422937 + 로컬 dalkkak_nsfw_wan_local
+#
+# Vast 템플릿 환경변수:
+#   CIVITAI_TOKEN  = Civitai API 토큰 (Fused_Triple LoRA용, 권장)
+#   HF_TOKEN       = HuggingFace 토큰 (선택)
+#   INSTALL_OLLAMA = true 이면 Ollama + 비전 모델까지 설치 (디스크 +6GB, 기본 false)
+#
+# 디스크 권장: 80GB+ (Wan High/Low ~29GB + UMT5 ~7GB + LoRA/VAE/업스케일 + 여유)
 
 #DEFAULT_WORKFLOW="https://..."
 
 APT_PACKAGES=(
-    #"package-1"
-    #"package-2"
+    #"ffmpeg"
 )
 
 PIP_PACKAGES=(
     #"package-1"
-    #"package-2"
 )
 
 NODES=(
     "https://github.com/ltdrdata/ComfyUI-Manager"
-    "https://github.com/cubiq/ComfyUI_essentials"
+    "https://github.com/kijai/ComfyUI-WanVideoWrapper"
+    "https://github.com/kijai/ComfyUI-KJNodes"
+    "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite"
+    "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation"
+    "https://github.com/city96/ComfyUI-GGUF"
+    "https://github.com/yolain/ComfyUI-Easy-Use"
+    "https://github.com/rgthree/rgthree-comfy"
+    "https://github.com/pythongosssss/ComfyUI-Custom-Scripts"
+    "https://github.com/stavsap/comfyui-ollama"
+    "https://github.com/willmiao/ComfyUI-Lora-Manager"
+    "https://github.com/wallish77/wlsh_nodes"
+    "https://github.com/JPS-GER/ComfyUI_JPS-Nodes"
+    "https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes"
+    "https://github.com/melMass/comfy_mtb"
+    "https://github.com/chrisgoringe/cg-use-everywhere"
+    "https://github.com/AlekPet/ComfyUI_Custom_Nodes_AlekPet"
+    "https://github.com/Smirnov75/ComfyUI-mxToolkit"
+    "https://github.com/WASasquatch/was-node-suite-comfyui"
+    "https://github.com/filliptm/ComfyUI_Fill-Nodes"
 )
 
+# SD 체크포인트는 안 씀 (WAN I2V만)
 CHECKPOINT_MODELS=(
-    "https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.ckpt"
-    #"https://huggingface.co/stabilityai/stable-diffusion-2-1/resolve/main/v2-1_768-ema-pruned.ckpt"
-    "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors"
-    "https://huggingface.co/stabilityai/stable-diffusion-xl-refiner-1.0/resolve/main/sd_xl_refiner_1.0.safetensors"
 )
 
+# DaSiWa WAN 2.2 I2V High/Low (HF 미러)
 UNET_MODELS=(
-
+    "https://huggingface.co/HGKI/DasiwaWAN22I2V14BLightspeed_midnightflirtHighV7.safetensors/resolve/main/DasiwaWAN22I2V14BLightspeed_midnightflirtHighV7.safetensors"
+    "https://huggingface.co/HGKI/DasiwaWAN22I2V14BLightspeed_midnightflirtHighV7.safetensors/resolve/main/DasiwaWAN22I2V14BLightspeed_midnightflirtLowV7.safetensors"
 )
 
 LORA_MODELS=(
-    #"https://civitai.com/api/download/models/16576"
+    "https://huggingface.co/ricecake/NSFW-22-H-e8/resolve/main/NSFW-22-H-e8.safetensors"
+    "https://huggingface.co/yeqiu168182/NSFW-22-L-e8/resolve/main/NSFW-22-L-e8.safetensors"
+    # 푸쉬드 / Fused_Triple — CIVITAI_TOKEN 필요
+    "https://civitai.com/api/download/models/2293529?type=Model&format=SafeTensor"
+    "https://civitai.com/api/download/models/2293622?type=Model&format=SafeTensor"
 )
 
 VAE_MODELS=(
-    "https://huggingface.co/stabilityai/sd-vae-ft-ema-original/resolve/main/vae-ft-ema-560000-ema-pruned.safetensors"
-    "https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.safetensors"
-    "https://huggingface.co/stabilityai/sdxl-vae/resolve/main/sdxl_vae.safetensors"
+    "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
 )
 
+TEXT_ENCODER_MODELS=(
+    "https://huggingface.co/NSFW-API/NSFW-Wan-UMT5-XXL/resolve/main/nsfw_wan_umt5-xxl_fp8_scaled.safetensors"
+)
+
+CLIP_VISION_MODELS=(
+    "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors"
+)
+
+# ai-dock 기본 변수명 (ESRGAN). 일부 포크는 UPSCALE_MODELS — 둘 다 채워둠
 ESRGAN_MODELS=(
-    "https://huggingface.co/ai-forever/Real-ESRGAN/resolve/main/RealESRGAN_x4.pth"
-    "https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth"
-    "https://huggingface.co/Akumetsu971/SD_Anime_Futuristic_Armor/resolve/main/4x_NMKD-Siax_200k.pth"
+    "https://huggingface.co/Kim2091/2x-AnimeSharpV4/resolve/main/2x-AnimeSharpV4_RCAN.safetensors"
+    "https://huggingface.co/Kim2091/2x-AnimeSharpV4/resolve/main/2x-AnimeSharpV4_Fast_RCAN_PU.safetensors"
+    "https://huggingface.co/MonsterMMORPG/BestImageUpscalers/resolve/main/2xLiveActionV1_SPAN_490000.pth"
+)
+UPSCALE_MODELS=(
+    "${ESRGAN_MODELS[@]}"
 )
 
 CONTROLNET_MODELS=(
-    "https://huggingface.co/lllyasviel/sd_control_collection/resolve/main/diffusers_xl_canny_mid.safetensors"
-    "https://huggingface.co/lllyasviel/sd_control_collection/resolve/main/diffusers_xl_depth_mid.safetensors?download"
-    "https://huggingface.co/lllyasviel/sd_control_collection/resolve/main/t2i-adapter_diffusers_xl_openpose.safetensors"
-    "https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_canny-fp16.safetensors"
-    #"https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_depth-fp16.safetensors"
-    "https://huggingface.co/kohya-ss/ControlNet-diff-modules/resolve/main/diff_control_sd15_depth_fp16.safetensors"
-    #"https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_hed-fp16.safetensors"
-    #"https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_mlsd-fp16.safetensors"
-    #"https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_normal-fp16.safetensors"
-    "https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_openpose-fp16.safetensors"
-    #"https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_scribble-fp16.safetensors"
-    #"https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/control_seg-fp16.safetensors"
-    "https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/t2iadapter_canny-fp16.safetensors"
-    #"https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/t2iadapter_color-fp16.safetensors"
-    #"https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/t2iadapter_depth-fp16.safetensors"
-    #"https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/t2iadapter_keypose-fp16.safetensors"
-    "https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/t2iadapter_openpose-fp16.safetensors"
-    #"https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/t2iadapter_seg-fp16.safetensors"
-    #"https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/t2iadapter_sketch-fp16.safetensors"
-    #"https://huggingface.co/webui/ControlNet-modules-safetensors/resolve/main/t2iadapter_style-fp16.safetensors"
 )
 
 ### DO NOT EDIT BELOW HERE UNLESS YOU KNOW WHAT YOU ARE DOING ###
 
+DISK_GB_REQUIRED=80
+
 function provisioning_start() {
-    if [[ ! -d /opt/environments/python ]]; then 
+    if [[ ! -d /opt/environments/python ]]; then
         export MAMBA_BASE=true
     fi
     source /opt/ai-dock/etc/environment.sh
@@ -86,44 +100,70 @@ function provisioning_start() {
     provisioning_get_apt_packages
     provisioning_get_nodes
     provisioning_get_pip_packages
-    provisioning_get_models \
-        "${WORKSPACE}/storage/stable_diffusion/models/ckpt" \
-        "${CHECKPOINT_MODELS[@]}"
-    provisioning_get_models \
-        "${WORKSPACE}/storage/stable_diffusion/models/unet" \
-        "${UNET_MODELS[@]}"
-    provisioning_get_models \
-        "${WORKSPACE}/storage/stable_diffusion/models/lora" \
-        "${LORA_MODELS[@]}"
-    provisioning_get_models \
-        "${WORKSPACE}/storage/stable_diffusion/models/controlnet" \
-        "${CONTROLNET_MODELS[@]}"
-    provisioning_get_models \
-        "${WORKSPACE}/storage/stable_diffusion/models/vae" \
-        "${VAE_MODELS[@]}"
-    provisioning_get_models \
-        "${WORKSPACE}/storage/stable_diffusion/models/esrgan" \
-        "${ESRGAN_MODELS[@]}"
+
+    # ai-dock 스토리지 레이아웃 (심볼릭으로 ComfyUI/models 에 연결됨)
+    local sd="${WORKSPACE}/storage/stable_diffusion/models"
+    mkdir -p \
+        "${sd}/unet/Wan2.1" \
+        "${sd}/diffusion_models/Wan2.1" \
+        "${sd}/lora" \
+        "${sd}/vae" \
+        "${sd}/clip" \
+        "${sd}/text_encoders" \
+        "${sd}/clip_vision" \
+        "${sd}/esrgan" \
+        "${sd}/upscale_models"
+
+    # UNET / diffusion_models (워크플로 경로: Wan2.1\파일명)
+    provisioning_get_models "${sd}/unet/Wan2.1" "${UNET_MODELS[@]}"
+    provisioning_get_models "${sd}/diffusion_models/Wan2.1" "${UNET_MODELS[@]}"
+
+    provisioning_get_models "${sd}/lora" "${LORA_MODELS[@]}"
+    provisioning_get_models "${sd}/vae" "${VAE_MODELS[@]}"
+    provisioning_get_models "${sd}/text_encoders" "${TEXT_ENCODER_MODELS[@]}"
+    # CLIPLoader 가 clip/ 도 찾는 경우 대비
+    provisioning_get_models "${sd}/clip" "${TEXT_ENCODER_MODELS[@]}"
+    provisioning_get_models "${sd}/clip_vision" "${CLIP_VISION_MODELS[@]}"
+    provisioning_get_models "${sd}/esrgan" "${ESRGAN_MODELS[@]}"
+    provisioning_get_models "${sd}/upscale_models" "${UPSCALE_MODELS[@]}"
+
+    provisioning_maybe_install_ollama
     provisioning_print_end
+}
+
+function provisioning_maybe_install_ollama() {
+    if [[ "${INSTALL_OLLAMA,,}" != "true" ]]; then
+        printf "INSTALL_OLLAMA!=true — Ollama 생략 (ComfyUI에서 수동 프롬프트 사용 가능)\n"
+        return 0
+    fi
+    printf "Installing Ollama (CPU 권장: OLLAMA_NUM_GPU=0)...\n"
+    if ! command -v ollama >/dev/null 2>&1; then
+        curl -fsSL https://ollama.com/install.sh | sh
+    fi
+    # 백그라운드 serve
+    export OLLAMA_NUM_GPU="${OLLAMA_NUM_GPU:-0}"
+    nohup ollama serve >/var/log/ollama.log 2>&1 &
+    sleep 3
+    ollama pull huihui_ai/qwen3-vl-abliterated:8b-instruct || true
 }
 
 function pip_install() {
     if [[ -z $MAMBA_BASE ]]; then
-            "$COMFYUI_VENV_PIP" install --no-cache-dir "$@"
-        else
-            micromamba run -n comfyui pip install --no-cache-dir "$@"
-        fi
+        "$COMFYUI_VENV_PIP" install --no-cache-dir "$@"
+    else
+        micromamba run -n comfyui pip install --no-cache-dir "$@"
+    fi
 }
 
 function provisioning_get_apt_packages() {
     if [[ -n $APT_PACKAGES ]]; then
-            sudo $APT_INSTALL ${APT_PACKAGES[@]}
+        sudo $APT_INSTALL ${APT_PACKAGES[@]}
     fi
 }
 
 function provisioning_get_pip_packages() {
     if [[ -n $PIP_PACKAGES ]]; then
-            pip_install ${PIP_PACKAGES[@]}
+        pip_install ${PIP_PACKAGES[@]}
     fi
 }
 
@@ -137,7 +177,7 @@ function provisioning_get_nodes() {
                 printf "Updating node: %s...\n" "${repo}"
                 ( cd "$path" && git pull )
                 if [[ -e $requirements ]]; then
-                   pip_install -r "$requirements"
+                    pip_install -r "$requirements"
                 fi
             fi
         else
@@ -150,24 +190,15 @@ function provisioning_get_nodes() {
     done
 }
 
-function provisioning_get_default_workflow() {
-    if [[ -n $DEFAULT_WORKFLOW ]]; then
-        workflow_json=$(curl -s "$DEFAULT_WORKFLOW")
-        if [[ -n $workflow_json ]]; then
-            echo "export const defaultGraph = $workflow_json;" > /opt/ComfyUI/web/scripts/defaultGraph.js
-        fi
-    fi
-}
-
 function provisioning_get_models() {
     if [[ -z $2 ]]; then return 1; fi
-    
     dir="$1"
     mkdir -p "$dir"
     shift
     arr=("$@")
     printf "Downloading %s model(s) to %s...\n" "${#arr[@]}" "$dir"
     for url in "${arr[@]}"; do
+        [[ -z "$url" || "$url" =~ ^# ]] && continue
         printf "Downloading: %s\n" "${url}"
         provisioning_download "${url}" "${dir}"
         printf "\n"
@@ -175,57 +206,32 @@ function provisioning_get_models() {
 }
 
 function provisioning_print_header() {
-    printf "\n##############################################\n#                                            #\n#          Provisioning container            #\n#                                            #\n#         This will take some time           #\n#                                            #\n# Your container will be ready on completion #\n#                                            #\n##############################################\n\n"
-    if [[ $DISK_GB_ALLOCATED -lt $DISK_GB_REQUIRED ]]; then
-        printf "WARNING: Your allocated disk size (%sGB) is below the recommended %sGB - Some models will not be downloaded\n" "$DISK_GB_ALLOCATED" "$DISK_GB_REQUIRED"
+    printf "\n##############################################\n"
+    printf "# nai움짤 dalkkak WAN provisioning           #\n"
+    printf "##############################################\n\n"
+    if [[ -n $DISK_GB_ALLOCATED && -n $DISK_GB_REQUIRED ]]; then
+        if [[ $DISK_GB_ALLOCATED -lt $DISK_GB_REQUIRED ]]; then
+            printf "WARNING: disk %sGB < recommended %sGB\n" "$DISK_GB_ALLOCATED" "$DISK_GB_REQUIRED"
+        fi
+    fi
+    if [[ -z "$CIVITAI_TOKEN" ]]; then
+        printf "NOTE: CIVITAI_TOKEN 없음 — Fused_Triple LoRA 다운로드가 실패할 수 있음 (NSFW-22는 HF로 받음)\n"
     fi
 }
 
 function provisioning_print_end() {
-    printf "\nProvisioning complete:  Web UI will start now\n\n"
+    printf "\nProvisioning complete.\n"
+    printf "Upload workflow: dalkkak_nsfw_wan_local.png\n"
+    printf "Ollama (if installed): http://127.0.0.1:11434 model huihui_ai/qwen3-vl-abliterated:8b-instruct\n\n"
 }
 
-function provisioning_has_valid_hf_token() {
-    [[ -n "$HF_TOKEN" ]] || return 1
-    url="https://huggingface.co/api/whoami-v2"
-
-    response=$(curl -o /dev/null -s -w "%{http_code}" -X GET "$url" \
-        -H "Authorization: Bearer $HF_TOKEN" \
-        -H "Content-Type: application/json")
-
-    # Check if the token is valid
-    if [ "$response" -eq 200 ]; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-function provisioning_has_valid_civitai_token() {
-    [[ -n "$CIVITAI_TOKEN" ]] || return 1
-    url="https://civitai.com/api/v1/models?hidden=1&limit=1"
-
-    response=$(curl -o /dev/null -s -w "%{http_code}" -X GET "$url" \
-        -H "Authorization: Bearer $CIVITAI_TOKEN" \
-        -H "Content-Type: application/json")
-
-    # Check if the token is valid
-    if [ "$response" -eq 200 ]; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-# Download from $1 URL to $2 file path
 function provisioning_download() {
     if [[ -n $HF_TOKEN && $1 =~ ^https://([a-zA-Z0-9_-]+\.)?huggingface\.co(/|$|\?) ]]; then
         auth_token="$HF_TOKEN"
-    elif 
-        [[ -n $CIVITAI_TOKEN && $1 =~ ^https://([a-zA-Z0-9_-]+\.)?civitai\.com(/|$|\?) ]]; then
+    elif [[ -n $CIVITAI_TOKEN && $1 =~ ^https://([a-zA-Z0-9_-]+\.)?civitai\.com(/|$|\?) ]]; then
         auth_token="$CIVITAI_TOKEN"
     fi
-    if [[ -n $auth_token ]];then
+    if [[ -n $auth_token ]]; then
         wget --header="Authorization: Bearer $auth_token" -qnc --content-disposition --show-progress -e dotbytes="${3:-4M}" -P "$2" "$1"
     else
         wget -qnc --content-disposition --show-progress -e dotbytes="${3:-4M}" -P "$2" "$1"
