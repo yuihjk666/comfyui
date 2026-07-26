@@ -123,29 +123,49 @@ function provisioning_start() {
     local md="${COMFYUI_DIR}/models"
     mkdir -p \
         "${md}/diffusion_models/Wan2.1" \
-        "${md}/unet/Wan2.1" \
         "${md}/loras" \
         "${md}/vae" \
-        "${md}/clip" \
         "${md}/text_encoders" \
         "${md}/clip_vision" \
-        "${md}/upscale_models" \
-        "${md}/esrgan"
+        "${md}/upscale_models"
 
-    # UNET / diffusion_models (워크플로 경로: Wan2.1\파일명)
+    # High/Low 는 diffusion_models 에만 1회 다운로드 (unet 은 심볼릭 링크)
     provisioning_get_models "${md}/diffusion_models/Wan2.1" "${UNET_MODELS[@]}"
-    provisioning_get_models "${md}/unet/Wan2.1" "${UNET_MODELS[@]}"
+    mkdir -p "${md}/unet"
+    ln -sfn "${md}/diffusion_models/Wan2.1" "${md}/unet/Wan2.1"
 
     provisioning_get_models "${md}/loras" "${LORA_MODELS[@]}"
     provisioning_get_models "${md}/vae" "${VAE_MODELS[@]}"
     provisioning_get_models "${md}/text_encoders" "${TEXT_ENCODER_MODELS[@]}"
-    provisioning_get_models "${md}/clip" "${TEXT_ENCODER_MODELS[@]}"
+    # CLIPLoader 호환: clip/ 에 같은 파일 링크 (재다운로드 없음)
+    mkdir -p "${md}/clip"
+    provisioning_link_dir_files "${md}/text_encoders" "${md}/clip"
+
     provisioning_get_models "${md}/clip_vision" "${CLIP_VISION_MODELS[@]}"
     provisioning_get_models "${md}/upscale_models" "${ESRGAN_MODELS[@]}"
-    provisioning_get_models "${md}/esrgan" "${ESRGAN_MODELS[@]}"
+    # esrgan 별칭 폴더 (재다운로드 없음)
+    mkdir -p "${md}/esrgan"
+    provisioning_link_dir_files "${md}/upscale_models" "${md}/esrgan"
 
     provisioning_maybe_install_ollama
     provisioning_print_end
+}
+
+# src 디렉터리 파일들을 dest 에 심볼릭 링크로 연결 (이미 있으면 건너뜀)
+function provisioning_link_dir_files() {
+    local src="$1"
+    local dest="$2"
+    local f base
+    [[ -d "$src" ]] || return 0
+    mkdir -p "$dest"
+    for f in "${src}"/*; do
+        [[ -e "$f" || -L "$f" ]] || continue
+        base="$(basename "$f")"
+        if [[ -e "${dest}/${base}" || -L "${dest}/${base}" ]]; then
+            continue
+        fi
+        ln -sfn "$f" "${dest}/${base}"
+    done
 }
 
 function provisioning_maybe_install_ollama() {
