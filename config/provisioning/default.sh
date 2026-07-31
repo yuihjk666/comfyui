@@ -108,6 +108,7 @@ function provisioning_download_to() {
 
 function provisioning_gdrive_to() {
     # usage: provisioning_gdrive_to FILE_ID DEST_PATH
+    # gdown 신버전: positional id / 구버전: --id (둘 다 시도)
     local fid="$1"
     local dest="$2"
     mkdir -p "$(dirname "${dest}")"
@@ -117,10 +118,22 @@ function provisioning_gdrive_to() {
     fi
     printf "gdown %s -> %s\n" "${fid}" "${dest}"
     pip_install gdown >/dev/null 2>&1 || true
-    gdown --id "${fid}" -O "${dest}" || {
-        printf "WARN: gdown failed for %s\n" "${fid}"
-        return 1
-    }
+    if gdown "${fid}" -O "${dest}" 2>/dev/null; then
+        return 0
+    fi
+    if gdown --id "${fid}" -O "${dest}" 2>/dev/null; then
+        return 0
+    fi
+    # 소형 파일용 Drive 직접 다운로드
+    if curl -L --fail --retry 3 \
+        "https://drive.google.com/uc?export=download&id=${fid}" \
+        -o "${dest}" 2>/dev/null \
+        && [[ -f "${dest}" && $(wc -c < "${dest}") -gt 1000 ]]; then
+        return 0
+    fi
+    rm -f "${dest}"
+    printf "WARN: gdown/curl failed for %s\n" "${fid}"
+    return 1
 }
 
 function provisioning_get_apt_packages() {
@@ -169,17 +182,53 @@ function provisioning_install_sageattention() {
 }
 
 function provisioning_install_nodes_dully() {
+    # nodes_dully.py 는 custom_nodes/ 직하에 둬야 함
+    # (파일 내부에서 ../custom_nodes/ComfyUI-WanVideoWrapper 경로를 가정)
     local dest="${COMFYUI_DIR}/custom_nodes/nodes_dully.py"
+    local ok=0
+
+    if [[ -f "${dest}" && $(wc -c < "${dest}") -gt 50000 ]]; then
+        printf "nodes_dully.py already present (%s bytes)\n" "$(wc -c < "${dest}")"
+        return 0
+    fi
+
     if [[ -n ${ASSETS_BASE_URL:-} ]]; then
-        provisioning_download_to "${ASSETS_BASE_URL%/}/nodes_dully.py" "${dest}" || true
+        printf "Trying ASSETS_BASE_URL for nodes_dully.py...\n"
+        provisioning_download_to "${ASSETS_BASE_URL%/}/nodes_dully.py" "${dest}" && ok=1
     fi
-    if [[ ! -f "${dest}" ]]; then
-        provisioning_gdrive_to "${GDRIVE_NODES_DULLY}" "${dest}" || true
+
+    if [[ $ok -ne 1 || ! -f "${dest}" ]]; then
+        printf "Trying gdown for nodes_dully.py...\n"
+        provisioning_gdrive_to "${GDRIVE_NODES_DULLY}" "${dest}" && ok=1
     fi
-    if [[ -f "${dest}" ]]; then
+
+    # gdown 실패 시 Drive 직접 curl (소형 파일이라 confirm 불필요)
+    if [[ ! -f "${dest}" || $(wc -c < "${dest}" 2>/dev/null || echo 0) -lt 50000 ]]; then
+        printf "Trying curl Google Drive uc export...\n"
+        rm -f "${dest}"
+        curl -L --fail --retry 3 \
+            "https://drive.google.com/uc?export=download&id=${GDRIVE_NODES_DULLY}" \
+            -o "${dest}" || true
+    fi
+
+    if [[ -f "${dest}" && $(wc -c < "${dest}") -gt 50000 ]]; then
         printf "nodes_dully.py OK (%s bytes)\n" "$(wc -c < "${dest}")"
+        # 로드 스모크 테스트 (실패해도 설치는 유지)
+        python - <<'PY' || true
+import sys, os
+sys.path.insert(0, os.environ.get("COMFYUI_DIR", "/workspace/ComfyUI"))
+# just syntax-check the file
+import ast
+p = os.path.join(os.environ.get("COMFYUI_DIR", "/workspace/ComfyUI"), "custom_nodes", "nodes_dully.py")
+ast.parse(open(p, encoding="utf-8").read())
+print("nodes_dully.py syntax OK")
+PY
     else
-        printf "ERROR: nodes_dully.py missing — Universal workflow will show UNKNOWN nodes\n"
+        printf "ERROR: nodes_dully.py missing/too small — Universal 워크플로가 UNKNOWN 노드로 뜹니다.\n"
+        printf "수동 복구:\n"
+        printf "  cd %s/custom_nodes && pip install -q gdown && gdown %s -O nodes_dully.py\n" \
+            "${COMFYUI_DIR}" "${GDRIVE_NODES_DULLY}"
+        printf "  그다음 ComfyUI 재시작\n"
     fi
 }
 
@@ -296,6 +345,7 @@ function provisioning_print_end() {
 
 function provisioning_start() {
     provisioning_resolve_paths
+    export COMFYUI_DIR
     provisioning_print_header
     provisioning_get_apt_packages
     provisioning_get_nodes
